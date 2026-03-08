@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Lanche Feliz | PDV Inteligente</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&display=swap');
+        @media print { .no-print { display: none; } body { background: white; } }
+        .font-mono-cupom { font-family: 'Courier Prime', monospace; }
+        .cupom-fiscal { background: #fff; color: #000; padding: 20px; width: 300px; border: 1px dashed #ccc; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-slate-900 text-white min-h-screen flex font-sans overflow-hidden">
+
+    <aside class="w-1/4 bg-slate-800 p-4 border-r border-slate-700 no-print flex flex-col shadow-2xl">
+        <h1 class="text-xl font-bold text-orange-500 mb-4 italic text-center border-b border-orange-500 pb-2">🍎 LANCHE FELIZ</h1>
+        
+        <div class="space-y-2 mb-4">
+            <input type="text" id="cliNome" placeholder="Nome do Cliente" class="w-full p-2 text-sm rounded-lg bg-slate-700 border border-slate-600 outline-none focus:border-orange-500">
+            <input type="text" id="cliCPF" placeholder="CPF" class="w-full p-2 text-sm rounded-lg bg-slate-700 border border-slate-600 outline-none focus:border-orange-500">
+        </div>
+
+        <div class="flex-1 overflow-y-auto border-t border-slate-700 pt-2">
+            <table class="w-full text-[11px]">
+                <thead class="text-slate-500 uppercase text-[9px] border-b border-slate-700">
+                    <tr><th class="text-left pb-1">Item</th><th class="pb-1 text-center">Qtd</th><th class="pb-1 text-right">Total</th><th></th></tr>
+                </thead>
+                <tbody id="itens-lista"></tbody>
+            </table>
+        </div>
+
+        <div class="mt-4 p-3 bg-slate-950 rounded-lg space-y-1 border border-slate-700">
+            <div class="flex justify-between font-bold text-lg text-orange-500">
+                <span>TOTAL:</span><span>R$ <span id="total-val">0.00</span></span>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+                <span>PAGO:</span>
+                <input type="number" id="valorPago" oninput="calcularTroco()" class="flex-1 p-1 rounded bg-slate-800 text-right font-bold text-green-400 outline-none border border-slate-600 focus:border-green-500">
+            </div>
+            <div id="troco-display" class="text-[11px] font-semibold text-center mt-2 py-1 bg-slate-900 rounded">
+                TROCO: R$ <span id="troco-val">0.00</span>
+            </div>
+        </div>
+        
+        <button id="btnFechar" onclick="gerarNota()" disabled class="w-full mt-4 bg-slate-600 text-slate-400 py-3 rounded-xl font-bold text-sm cursor-not-allowed transition-all uppercase tracking-widest">
+            Fechar Venda
+        </button>
+    </aside>
+
+    <main class="flex-1 p-6 no-print flex flex-col h-screen">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-xl font-light opacity-70 italic">Cardápio de Produtos</h2>
+            <div class="relative w-64">
+                <input type="text" id="inputBusca" onkeyup="filtrarProdutos()" placeholder="🔍 Buscar produto..." 
+                class="w-full bg-slate-800 border border-slate-700 rounded-full py-2 px-4 text-sm outline-none focus:border-orange-500 transition-all">
+            </div>
+        </div>
+        
+        <div class="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 overflow-y-auto pr-2" id="grid-produtos"></div>
+    </main>
+
+    <div id="modalQtd" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+        <div class="bg-white text-slate-900 p-6 rounded-2xl w-56 shadow-2xl border-4 border-orange-500">
+            <h3 class="font-bold mb-2 text-center text-orange-600 uppercase tracking-tighter" id="titulo-prod">Produto</h3>
+            <input type="number" id="input-qtd" value="1" min="1" class="w-full p-2 border-2 border-slate-200 rounded-lg text-center font-bold text-lg mb-4 outline-none focus:border-orange-400">
+            <button onclick="confirmarAdicao()" class="w-full bg-orange-500 hover:bg-orange-600 text-white py-2 rounded-lg font-bold">ADICIONAR</button>
+        </div>
+    </div>
+
+    <div id="modalNota" class="hidden fixed inset-0 bg-black/95 flex flex-col items-center justify-center z-50 overflow-y-auto">
+        <div id="cupom-final" class="cupom-fiscal font-mono-cupom text-[10px]">
+            <div class="text-center font-bold">*** QUITANDA LANCHE FELIZ ***</div>
+            <div class="text-center">CNPJ: 00.123.456/0001-99</div>
+            <div class="border-b border-dashed my-2"></div>
+            <div id="nota-dados-cliente"></div>
+            <div class="border-b border-dashed my-2"></div>
+            <div class="flex justify-between font-bold mb-1"><span>DESCRIÇÃO</span><span>VALOR</span></div>
+            <div id="nota-itens"></div>
+            <div class="border-b border-dashed my-2"></div>
+            <div class="flex justify-between font-bold text-xs"><span>TOTAL GERAL</span><span id="nota-total"></span></div>
+            <div class="flex justify-between"><span>RECEBIDO</span><span id="nota-pago"></span></div>
+            <div class="flex justify-between font-bold"><span>TROCO</span><span id="nota-troco"></span></div>
+            <div class="border-b border-dashed my-2"></div>
+            <div class="text-center" id="nota-horario"></div>
+            <div class="text-center mt-2 text-[9px]">--- VOLTE SEMPRE ---</div>
+        </div>
+        <div class="mt-4 flex gap-2 no-print">
+            <button onclick="window.print()" class="bg-blue-600 px-6 py-2 rounded-lg font-bold hover:bg-blue-500">IMPRIMIR</button>
+            <button onclick="location.reload()" class="bg-slate-700 px-6 py-2 rounded-lg font-bold hover:bg-slate-600">NOVA VENDA</button>
+        </div>
+    </div>
+
+    <script>
+        const produtos = [
+            { id: 1, nome: "Cafezinho", preco: 0.50, img: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTzl8PFUUDOm1sDcFyQfIxDzEQXe1LS-SqbVQ&s" },
+            { id: 2, nome: "Pão c/ Manteiga", preco: 1.20, img: "https://media.istockphoto.com/id/1337726352/pt/foto/slice-of-salt-bread-cut-with-butter-called-french-bread-in-brazil-brazilian-breakfast.jpg?s=612x612&w=0&k=20&c=QD-RsCfSasZ7pHZ8nwD9VKD2-6xbgrGshxBAs1acxaA=" },
+            { id: 3, nome: "Misto Quente", preco: 1.75, img: "https://assets.unileversolutions.com/recipes-v2/116733.jpg" },
+            { id: 4, nome: "Misto c/ Ovo", preco: 2.00, img: "https://images.unsplash.com/photo-1525351484163-7529414344d8?w=200" },
+            { id: 5, nome: "Suco Natural", preco: 2.25, img: "https://www.casadotambaquipvh.com.br/Imagens/7d029e9aa94740fe9a19389f14c8f988.jpeg" },
+            { id: 6, nome: "Pão de Queijo", preco: 1.00, img: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ7sYHQclxNh4NNMXt0xdKpbC98DpdhzHMGUw&s" },
+            { id: 7, nome: "Bolo de Cenoura", preco: 3.50, img: "https://static.itdg.com.br/images/640-400/34b9fb585d6b2730ab91a3422a0e9d50/bolo-de-cenoura.jpg" },
+            { id: 8, nome: "Porção de Pão de queijo (10und)", preco: 3.50, img: "https://essareceitafunciona.com.br/wp-content/uploads/2022/07/Pao-de-queijo-Essa-Receita-Funciona-9.jpg" }
+        ];
+        
+        let produtoAtual = null;
+        let carrinho = [];
+
+        function renderizarGrid(lista = produtos) {
+            const container = document.getElementById('grid-produtos');
+            container.innerHTML = "";
+            lista.forEach(p => {
+                container.innerHTML += `
+                    <div class="bg-slate-800 p-3 rounded-xl border border-slate-700 hover:border-orange-500 transition-all shadow hover:scale-105">
+                       <img src="${p.img}" class="w-full h-16 rounded-lg object-cover mb-2 transition duration-500">
+                        <p class="font-bold text-[10px] truncate uppercase">${p.nome}</p>
+                        <p class="text-orange-400 text-[10px] mb-2 font-mono">R$ ${p.preco.toFixed(2)}</p>
+                        <div class="flex gap-1">
+                            <button onclick="adicionarDireto(${p.id})" class="flex-1 bg-orange-600 py-1 rounded text-[9px] font-bold hover:bg-orange-500 transition-colors">+</button>
+                            <button onclick="abrirModal(${p.id})" class="flex-1 bg-slate-700 py-1 rounded text-[9px] hover:bg-slate-600">Qtd</button>
+                        </div>
+                    </div>`;
+            });
+        }
+
+        function filtrarProdutos() {
+            const termo = document.getElementById('inputBusca').value.toLowerCase();
+            const filtrados = produtos.filter(p => p.nome.toLowerCase().includes(termo));
+            renderizarGrid(filtrados);
+        }
+
+        function adicionarDireto(id) {
+            produtoAtual = produtos.find(p => p.id === id);
+            processarAdicao(1);
+        }
+
+        function abrirModal(id) {
+            produtoAtual = produtos.find(p => p.id === id);
+            document.getElementById('titulo-prod').innerText = produtoAtual.nome;
+            document.getElementById('modalQtd').classList.remove('hidden');
+        }
+
+        function confirmarAdicao() {
+            const qtd = parseInt(document.getElementById('input-qtd').value) || 1;
+            processarAdicao(qtd);
+            document.getElementById('modalQtd').classList.add('hidden');
+            document.getElementById('input-qtd').value = 1;
+        }
+
+        function processarAdicao(qtd) {
+            const itemExistente = carrinho.find(item => item.id === produtoAtual.id);
+
+            if (itemExistente) {
+                itemExistente.qtd += qtd;
+                itemExistente.subtotal = itemExistente.qtd * itemExistente.preco;
+            } else {
+                carrinho.push({ ...produtoAtual, qtd, subtotal: produtoAtual.preco * qtd });
+            }
+            
+            atualizarListaCarrinho();
+            calcularTotal();
+        }
+
+        function atualizarListaCarrinho() {
+            const listaHtml = document.getElementById('itens-lista');
+            listaHtml.innerHTML = "";
+            
+            carrinho.forEach((item, index) => {
+                listaHtml.innerHTML += `
+                    <tr class="border-b border-slate-700 animate-in fade-in duration-300">
+                        <td class="py-2 text-[10px] uppercase font-semibold text-slate-200">${item.nome}</td>
+                        <td class="text-center px-2 font-bold text-orange-400">${item.qtd}</td>
+                        <td class="text-right font-mono">R$${item.subtotal.toFixed(2)}</td>
+                        <td class="text-right"><button onclick="removerItem(${index})" class="text-red-500 ml-2 hover:bg-red-500/20 px-1 rounded">×</button></td>
+                    </tr>`;
+            });
+        }
+
+        function removerItem(index) {
+            carrinho.splice(index, 1);
+            atualizarListaCarrinho();
+            calcularTotal();
+        }
+
+        function calcularTotal() {
+            const total = carrinho.reduce((sum, item) => sum + item.subtotal, 0);
+            document.getElementById('total-val').innerText = total.toFixed(2);
+            calcularTroco();
+        }
+
+        function calcularTroco() {
+            const pago = parseFloat(document.getElementById('valorPago').value) || 0;
+            const total = parseFloat(document.getElementById('total-val').innerText);
+            const display = document.getElementById('troco-display');
+            const btn = document.getElementById('btnFechar');
+
+            if (total > 0 && pago < total) {
+                display.classList.replace('bg-slate-900', 'bg-red-900/40');
+                display.innerHTML = `<span class="text-red-400 animate-pulse">VALOR INSUFICIENTE</span>`;
+                btn.disabled = true;
+                btn.classList.add('opacity-50', 'cursor-not-allowed');
+            } else {
+                display.classList.replace('bg-red-900/40', 'bg-slate-900');
+                const troco = Math.max(0, pago - total);
+                display.innerHTML = `TROCO: R$ <span id="troco-val" class="text-green-400 font-bold">${troco.toFixed(2)}</span>`;
+                btn.disabled = total === 0;
+                btn.classList.toggle('opacity-50', total === 0);
+                btn.classList.toggle('bg-green-600', total > 0);
+                btn.classList.toggle('text-white', total > 0);
+            }
+        }
+
+        function gerarNota() {
+            const nome = document.getElementById('cliNome').value || "CONSUMIDOR FINAL";
+            const cpf = document.getElementById('cliCPF').value || "000.000.000-00";
+            document.getElementById('nota-dados-cliente').innerHTML = `CLIENTE: ${nome.toUpperCase()}<br>CPF: ${cpf}`;
+            
+            let itensHtml = "";
+            carrinho.forEach(item => {
+                itensHtml += `<div class="flex justify-between uppercase"><span>${item.nome} (x${item.qtd})</span><span>${item.subtotal.toFixed(2)}</span></div>`;
+            });
+            
+            document.getElementById('nota-itens').innerHTML = itensHtml;
+            document.getElementById('nota-total').innerText = "R$ " + document.getElementById('total-val').innerText;
+            document.getElementById('nota-pago').innerText = "R$ " + (parseFloat(document.getElementById('valorPago').value) || 0).toFixed(2);
+            document.getElementById('nota-troco').innerText = "R$ " + (document.getElementById('troco-val')?.innerText || "0.00");
+            document.getElementById('nota-horario').innerText = new Date().toLocaleString('pt-BR');
+            document.getElementById('modalNota').classList.remove('hidden');
+        }
+
+        renderizarGrid();
+    </script>
+</body>
+</html>
